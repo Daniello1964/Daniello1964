@@ -1,0 +1,67 @@
+const fetch = require('node-fetch');
+
+async function main() {
+  const users = await fetch('https://fakestoreapi.com/users').then(res => res.json());
+  const carts = await fetch('https://fakestoreapi.com/carts').then(res => res.json());
+  const products = await fetch('https://fakestoreapi.com/products').then(res => res.json());
+
+  // Calculate total values for each category
+  const categoryValues = {};
+  products.forEach(product => {
+    if (product.category in categoryValues) {
+      categoryValues[product.category] += product.price;
+    } else {
+      categoryValues[product.category] = product.price;
+    }
+  });
+
+  // Find cart with highest value
+  let maxCartValue = 0;
+  let maxCartOwner = '';
+  carts.forEach(cart => {
+    let totalValue = 0;
+    cart.products.forEach(item => {
+      const product = products.find(product => product.id === item.productId);
+      totalValue += product.price * item.quantity;
+    });
+    if (totalValue > maxCartValue) {
+      maxCartValue = totalValue;
+      const owner = users.find(user => user.id === cart.userId);
+      maxCartOwner = owner.name;
+    }
+  });
+
+  // Find two users living furthest away from each other
+  let maxDistance = 0;
+  let furthestUsers = [];
+  users.forEach((user1, i) => {
+    users.slice(i + 1).forEach(user2 => {
+      const lat1 = parseFloat(user1.address.geo.lat);
+      const lon1 = parseFloat(user1.address.geo.lng);
+      const lat2 = parseFloat(user2.address.geo.lat);
+      const lon2 = parseFloat(user2.address.geo.lng);
+      const R = 6371; // Earth's radius in km
+      const dLat = deg2rad(lat2 - lat1);
+      const dLon = deg2rad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+              + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2))
+              * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distance = R * c;
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        furthestUsers = [user1.name, user2.name];
+      }
+    });
+  });
+
+  console.log('Total values for each category:', categoryValues);
+  console.log('Cart with highest value:', maxCartValue, 'owned by', maxCartOwner);
+  console.log('Furthest users:', furthestUsers, 'with distance', maxDistance, 'km');
+}
+
+function deg2rad(deg) {
+  return deg * (Math.PI / 180);
+}
+
+main();
